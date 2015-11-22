@@ -170,6 +170,95 @@ Overall Statistics
  Mcnemar's Test P-Value : 0.004089   </code></pre>
 <p>Running this model againts 20 cases of test data showed accuracy of 100%.</p>
 </div>
+<div id="appendix-1-full-r-script-with-random-forest" class="section level1">
+<h1>Appendix 1: Full R Script with Random Forest</h1>
+<pre class="r"><code>library(dplyr)</code></pre>
+<pre><code>## 
+## Attaching package: 'dplyr'
+## 
+## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+## 
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union</code></pre>
+<pre class="r"><code>library(ggplot2)
+library(caret)</code></pre>
+<pre><code>## Loading required package: lattice</code></pre>
+<pre class="r"><code>library(tidyr)
+
+rawtrain &lt;- read.csv(file=&quot;../pml-training.csv&quot;,stringsAsFactors = F)
+rawtest &lt;- read.csv(file=&quot;../pml-testing.csv&quot;,stringsAsFactors = F)
+
+intrain &lt;- createDataPartition(y=rawtrain$classe,p=.75,list=F)
+training &lt;- rawtrain[intrain,]
+testing &lt;- rawtrain[-intrain,]
+
+tx &lt;- training %&gt;% filter(new_window==&quot;no&quot;)
+tx &lt;- tx[,c(-7:-1)] #exclude username, timestamp from predictor variable
+tx &lt;- cbind(tx[,sapply(tx,class)!=&quot;character&quot;],classe=tx$classe)
+tx &lt;- tx[,colSums(is.na(tx))&lt;nrow(tx)]
+
+ts &lt;- testing %&gt;% filter(new_window==&quot;no&quot;)
+ts &lt;- ts[,c(-7:-1)] #exclude username, timestamp from predictor variable
+ts &lt;- cbind(ts[,sapply(ts,class)!=&quot;character&quot;],classe=ts$classe)
+ts &lt;- ts[,colSums(is.na(ts))&lt;nrow(ts)]
+
+preProc &lt;- preProcess(tx[,-53],method=&quot;pca&quot;,thresh=.9)
+trainPC &lt;- predict(preProc,tx)
+testPC &lt;- predict(preProc,ts)
+
+modelFit &lt;- train(tx$classe ~ .,method=&quot;rf&quot;, data=trainPC)</code></pre>
+<pre><code>## Loading required package: randomForest
+## randomForest 4.6-12
+## Type rfNews() to see new features/changes/bug fixes.
+## 
+## Attaching package: 'randomForest'
+## 
+## The following object is masked from 'package:dplyr':
+## 
+##     combine</code></pre>
+<pre class="r"><code>confusionMatrix(ts$classe,predict(modelFit,testPC))</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1353    3   12    4    0
+##          B   19  888   16    0    2
+##          C    4   15  805    8    1
+##          D    2    0   40  744    0
+##          E    0    5    5    9  862
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.9698          
+##                  95% CI : (0.9645, 0.9744)
+##     No Information Rate : 0.2873          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.9617          
+##  Mcnemar's Test P-Value : NA              
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9819   0.9748   0.9169   0.9725   0.9965
+## Specificity            0.9944   0.9905   0.9929   0.9896   0.9952
+## Pos Pred Value         0.9862   0.9600   0.9664   0.9466   0.9784
+## Neg Pred Value         0.9927   0.9941   0.9816   0.9948   0.9992
+## Prevalence             0.2873   0.1899   0.1830   0.1595   0.1803
+## Detection Rate         0.2821   0.1851   0.1678   0.1551   0.1797
+## Detection Prevalence   0.2860   0.1928   0.1737   0.1639   0.1837
+## Balanced Accuracy      0.9882   0.9826   0.9549   0.9811   0.9958</code></pre>
+<pre class="r"><code>rts &lt;- rawtest %&gt;% filter(new_window==&quot;no&quot;)
+rts &lt;- rts[,c(-7:-1)]
+rts &lt;- cbind(rts[,sapply(rts,class)!=&quot;character&quot;])
+rts &lt;- rts[,colSums(is.na(rts))&lt;nrow(rts)]
+  
+realtestPC &lt;- predict(preProc,rts)
+answer &lt;- predict(modelFit,realtestPC)</code></pre>
+</div>
 
 
 </div>
