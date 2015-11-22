@@ -100,7 +100,7 @@ ts &lt;- testing %&gt;% filter(new_window==&quot;no&quot;)
 ts &lt;- ts[,c(-7:-1)] #exclude username, timestamp from predictor variable
 ts &lt;- cbind(ts[,sapply(ts,class)!=&quot;character&quot;],classe=ts$classe)
 ts &lt;- ts[,colSums(is.na(ts))&lt;nrow(ts)]</code></pre>
-<p>The result of the data cleaning.</p>
+<p>The result of the data cleaning is matrix with 53 variables and 14402 observations.</p>
 <pre><code>&gt; dim(tx)
 [1] 14402    53</code></pre>
 </div>
@@ -109,7 +109,7 @@ ts &lt;- ts[,colSums(is.na(ts))&lt;nrow(ts)]</code></pre>
 <p>We use PCA to select predictors with at least 90% variance.</p>
 <pre><code>preProc &lt;- preProcess(tx[,-53],method=&quot;pca&quot;,thresh=.9)
 trainPC &lt;- predict(preProc,tx)</code></pre>
-<p>The pre-process summary.</p>
+<p>The pre-process summary shows that 20 components were selected to capture 90% of the variance.</p>
 <pre><code>Created from 14402 samples and 52 variables
 
 Pre-processing:
@@ -168,6 +168,7 @@ Overall Statistics
                                           
                   Kappa : 0.9714          
  Mcnemar's Test P-Value : 0.004089   </code></pre>
+<p>Running this model againts 20 cases of test data showed accuracy of 100%.</p>
 </div>
 
 
