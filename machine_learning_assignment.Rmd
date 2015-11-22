@@ -1,0 +1,182 @@
+---
+title: "Machine Learning Assignment"
+author: "David"
+date: "November 22, 2015"
+output: html_document
+---
+
+This is a documentation for assignment on Practical Machine Learning course by Johns Hopkins at Coursera.
+
+We will built a model to predict the "classe" variable in the given data set from https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv.
+
+# Summary
+
+Using Random Forest as the classification model, we can predict the given test with 100% accuracy.
+The accuracy estimated by the model is 97.74% from the cross validation.
+
+# Cross validation
+
+Training data is partitioned for cross validation.
+
+```
+# load data
+rawtrain <- read.csv(file="pml-training.csv",stringsAsFactors = F)
+rawtest <- read.csv(file="pml-testing.csv",stringsAsFactors = F)
+
+# data slicing
+intrain <- createDataPartition(y=rawtrain$classe,p=.75,list=F)
+training <- rawtrain[intrain,]
+testing <- rawtrain[-intrain,]
+```
+
+# Data exploration, cleaning and preprocessing
+
+From the initial exploration, it seems that there are many observation with NA value.
+Many of NA value comes from  average/max/stdev type of data in `new_window==yes`, which summarize each window observation.
+Variables with many of the observations are NA were dropped.
+
+```
+#training data cleanup
+tx <- training %>% filter(new_window=="no")
+tx <- tx[,c(-7:-1)] #exclude username, timestamp from predictor variable
+tx <- cbind(tx[,sapply(tx,class)!="character"],classe=tx$classe)
+tx <- tx[,colSums(is.na(tx))<nrow(tx)]
+
+#testing data cleanup
+ts <- testing %>% filter(new_window=="no")
+ts <- ts[,c(-7:-1)] #exclude username, timestamp from predictor variable
+ts <- cbind(ts[,sapply(ts,class)!="character"],classe=ts$classe)
+ts <- ts[,colSums(is.na(ts))<nrow(ts)]
+```
+
+The result of the data cleaning is matrix with 53 variables and 14402 observations.
+```
+> dim(tx)
+[1] 14402    53
+```
+
+# PCA
+
+We use PCA to select predictors with at least 90% variance.
+
+```
+preProc <- preProcess(tx[,-53],method="pca",thresh=.9)
+trainPC <- predict(preProc,tx)
+```
+
+The pre-process summary shows that 20 components were selected to capture 90% of the variance.
+```
+Created from 14402 samples and 52 variables
+
+Pre-processing:
+  - centered (52)
+  - ignored (0)
+  - principal component signal extraction (52)
+  - scaled (52)
+
+PCA needed 20 components to capture 90 percent of the variance
+```
+
+# Model selection
+
+We start with simple decision tree for classification. Use of simple linear modelling was discarded because this is multiclassification case.
+
+```
+modelFit <- train(tx$classe ~ .,method="rpart", data=trainPC)
+confusionMatrix(ts$classe,predict(modelFit,testPC)) #cross validation
+```
+The use of decision tree has a poor accuracy.
+
+```
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    A    B    C    D    E
+         A 1169   76    0   93   32
+         B  404  192    0  171  168
+         C  636  104    0   70   31
+         D  356   33    0  293  108
+         E  353   81    0  106  338
+
+Overall Statistics
+                                          
+               Accuracy : 0.4138          
+                 95% CI : (0.3998, 0.4279)
+    No Information Rate : 0.6061          
+    P-Value [Acc > NIR] : 1               
+                                          
+                  Kappa : 0.2259          
+ Mcnemar's Test P-Value : <2e-16
+```
+
+The next model selection is with Random Forest.
+```
+modelFit <- train(tx$classe ~ .,method="rf", data=trainPC)
+confusionMatrix(ts$classe,predict(modelFit,testPC))
+```
+
+The cross-validation showed the out of sample accuracy of 97.74%.
+```
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    A    B    C    D    E
+         A 1359    3    4    2    2
+         B   18  897   18    1    1
+         C    1    9  816   13    2
+         D    0    0   20  768    2
+         E    0    4    5    4  865
+
+Overall Statistics
+                                          
+               Accuracy : 0.9774          
+                 95% CI : (0.9728, 0.9814)
+    No Information Rate : 0.2862          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.9714          
+ Mcnemar's Test P-Value : 0.004089   
+```
+
+Running this model againts 20 cases of test data showed accuracy of 100%.
+
+# Appendix 1: Full R Script with Random Forest
+```{r}
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(tidyr)
+
+rawtrain <- read.csv(file="pml-training.csv",stringsAsFactors = F)
+rawtest <- read.csv(file="pml-testing.csv",stringsAsFactors = F)
+
+intrain <- createDataPartition(y=rawtrain$classe,p=.75,list=F)
+training <- rawtrain[intrain,]
+testing <- rawtrain[-intrain,]
+
+tx <- training %>% filter(new_window=="no")
+tx <- tx[,c(-7:-1)] #exclude username, timestamp from predictor variable
+tx <- cbind(tx[,sapply(tx,class)!="character"],classe=tx$classe)
+tx <- tx[,colSums(is.na(tx))<nrow(tx)]
+
+ts <- testing %>% filter(new_window=="no")
+ts <- ts[,c(-7:-1)] #exclude username, timestamp from predictor variable
+ts <- cbind(ts[,sapply(ts,class)!="character"],classe=ts$classe)
+ts <- ts[,colSums(is.na(ts))<nrow(ts)]
+
+preProc <- preProcess(tx[,-53],method="pca",thresh=.9)
+trainPC <- predict(preProc,tx)
+testPC <- predict(preProc,ts)
+
+modelFit <- train(tx$classe ~ .,method="rf", data=trainPC)
+confusionMatrix(ts$classe,predict(modelFit,testPC))
+
+rts <- rawtest %>% filter(new_window=="no")
+rts <- rts[,c(-7:-1)]
+rts <- cbind(rts[,sapply(rts,class)!="character"])
+rts <- rts[,colSums(is.na(rts))<nrow(rts)]
+  
+realtestPC <- predict(preProc,rts)
+answer <- predict(modelFit,realtestPC)
+
+```
